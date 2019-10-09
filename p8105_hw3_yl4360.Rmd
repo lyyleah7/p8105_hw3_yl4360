@@ -3,3 +3,133 @@ title: "p8105_HW3_yl4360"
 output: github_document
 author: Yiyang Liu
 ---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+```
+
+```{r message=FALSE}
+library(p8105.datasets)
+library(tidyverse)
+library(patchwork)
+data("instacart")
+```
+
+# Problem 1
+
+## Short discription
+
+* **The size and structure of the data:** there are `r nrow(instacart)` observations and `r ncol(instacart)` variables in the data. 11 variables are integer and 4 of them are character.
+
+* **Describing some key variables:** 
+  + `reordered`: 1 if this prodcut has been ordered by this user in the past, 0 otherwise
+  + `order_dow`: the day of the week on which the order was placed
+  + `eval_set`: which evaluation set this order belongs in _(Note that the data for use in this class is exclusively from the “train” `eval_set`)_
+
+* **Giving illustrative examples of observations:** For the 1st observation, order id is `r instacart[1,1]`.  It was ordered at 10 on Thursday and it is reordered 9 days after the prior order. The product name is `r instacart[1,11]` from department `r instacart[1,15]`. The 1st order consists of 8 products. User `r instacart[1,5]` ordered them.
+
+```{r include=FALSE}
+aisle_level = 
+  pull(instacart, aisle) %>% 
+  as.factor() %>% 
+  levels()
+  
+aisle_max = 
+  instacart %>%
+  group_by(aisle) %>%
+  summarise(number = n()) %>%
+  filter(number == max(number)) %>%
+  select(-number) %>%
+  as.character()
+```
+
+* **The number of aisles and the aisle that the most items are ordered from**: there are 134 aisles and the aisle that the most items are ordered from is `r aisle_max`.
+
+## Plot 1 
+
+Showing the number of items ordered in each aisle.
+
+```{r echo=FALSE}
+instacart %>% 
+  group_by(aisle) %>% 
+  summarise(number = n()) %>% 
+  filter(number > 10000) %>% 
+  ggplot(aes(x = reorder(aisle, number), y = number,  fill = aisle))+
+  geom_col() + 
+  coord_flip() +
+  viridis::scale_fill_viridis(option = "C", discrete = TRUE) +
+  labs(
+    title = "The number of items ordered in each aisle (n>10000)",
+    x = "aisles",
+    y = "number"
+  ) +
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+According to the plot, the orders from fresh vegetables is the most and butter is the least.
+
+## Table 1
+
+Showing the three most popular items in each of the aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”.
+
+```{r echo=FALSE}
+baking = 
+  instacart %>%
+  group_by(product_name) %>%
+  filter(aisle == "baking ingredients") %>%
+  summarise(order_times = n()) %>%
+  arrange(desc(order_times)) %>%
+  head(n = 3) %>%
+  mutate(group = "baking ingredients") %>%
+  select(group, everything())
+
+dog = 
+  instacart %>%
+  group_by(product_name) %>%
+  filter(aisle == "dog food care") %>%
+  summarise(order_times = n()) %>%
+  arrange(desc(order_times)) %>%
+  head(n = 3) %>%
+  mutate(group = "dog food care") %>%
+  select(group, everything())
+
+vege =
+  instacart %>%
+  group_by(product_name) %>%
+  filter(aisle == "packaged vegetables fruits") %>%
+  summarise(order_times = n()) %>%
+  arrange(desc(order_times)) %>%
+  head(n = 3) %>%
+  mutate(group = "packaged vegetables fruits") %>%
+  select(group, everything())
+
+bind_rows(baking, dog, vege) %>%
+  knitr::kable()
+```
+
+## Table 2
+
+Showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week.
+
+```{r echo=FALSE}
+instacart %>%
+  select(product_name, order_hour_of_day, order_dow) %>%
+  filter(product_name == "Pink Lady Apples" | product_name == "Coffee Ice Cream") %>%
+  group_by(product_name, order_dow) %>%
+  summarise(mean_hour = mean(order_hour_of_day)) %>%
+  mutate(
+    mean_hour = round(mean_hour,1),
+    order_dow = recode(order_dow, "0" = "Sun", "1" = "Mon", "2" = "Tue", "3" = "Wed", "4" = "Thur", "5" = "Fri", "6" = "Sat")
+  ) %>%
+  pivot_wider(
+    names_from = "order_dow",
+    values_from = "mean_hour"
+  ) %>%  
+  knitr::kable()
+```
+
