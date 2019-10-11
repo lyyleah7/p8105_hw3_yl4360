@@ -17,6 +17,7 @@ library(p8105.datasets)
 library(tidyverse)
 library(patchwork)
 data("instacart")
+data("brfss_smart2010")
 ```
 
 # Problem 1
@@ -32,7 +33,7 @@ data("instacart")
 
 * **Giving illustrative examples of observations:** For the 1st observation, order id is `r instacart[1,1]`.  It was ordered at 10 on Thursday and it is reordered 9 days after the prior order. The product name is `r instacart[1,11]` from department `r instacart[1,15]`. The 1st order consists of 8 products. User `r instacart[1,5]` ordered them.
 
-```{r include=FALSE}
+```{r}
 aisle_level = 
   pull(instacart, aisle) %>% 
   as.factor() %>% 
@@ -43,7 +44,7 @@ aisle_max =
   group_by(aisle) %>%
   summarise(number = n()) %>%
   filter(number == max(number)) %>%
-  select(-number) %>%
+  select(aisle) %>%
   as.character()
 ```
 
@@ -58,26 +59,37 @@ instacart %>%
   group_by(aisle) %>% 
   summarise(number = n()) %>% 
   filter(number > 10000) %>% 
-  ggplot(aes(x = reorder(aisle, number), y = number,  fill = aisle))+
-  geom_col() + 
-  coord_flip() +
-  viridis::scale_fill_viridis(option = "C", discrete = TRUE) +
+  ggplot(aes(x = reorder(aisle, -number), y = number))+
+  geom_col(fill = "pink") +
   labs(
     title = "The number of items ordered in each aisle (n>10000)",
     x = "aisles",
     y = "number"
   ) +
-  theme(plot.title = element_text(hjust = 0.5))
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    axis.text.x = element_text(angle = 60, hjust = 1))
 
 ```
 
-According to the plot, the orders from fresh vegetables is the most and butter is the least.
+According to the plot, it is hard to tell whether the orders from fresh vegetables or the ones from fresh fruits is the most but the result from coding is that  the orders from fresh vegetables is the most. Therefore we need further verify.
+
+```{r}
+aisle_max_ver = 
+  instacart %>% 
+  group_by(aisle) %>% 
+  summarise(number = n()) %>% 
+  arrange(desc(number)) %>% 
+  head(2)
+```
+
+It is verified that the orders from fresh vegetables is the most.
 
 ## Table 1
 
 Showing the three most popular items in each of the aisles “baking ingredients”, “dog food care”, and “packaged vegetables fruits”.
 
-```{r echo=FALSE}
+```{r}
 baking = 
   instacart %>%
   group_by(product_name) %>%
@@ -116,7 +128,7 @@ bind_rows(baking, dog, vege) %>%
 
 Showing the mean hour of the day at which Pink Lady Apples and Coffee Ice Cream are ordered on each day of the week.
 
-```{r echo=FALSE}
+```{r}
 instacart %>%
   select(product_name, order_hour_of_day, order_dow) %>%
   filter(product_name == "Pink Lady Apples" | product_name == "Coffee Ice Cream") %>%
@@ -133,3 +145,107 @@ instacart %>%
   knitr::kable()
 ```
 
+# Problem 2
+
+* **Clean the data.**
+
+```{r}
+brfss_clean = 
+  brfss_smart2010 %>% 
+  janitor::clean_names() %>% 
+  rename("state" = "locationabbr",
+       "county" = "locationdesc") %>% 
+  filter(
+    topic == "Overall Health",
+    response == "Excellent" | 
+    response == "Very good" | 
+    response == "Good"| 
+    response == "Fair"|
+    response == "Poor") %>% 
+  mutate(response = factor(response, levels = c("Poor","Fair","Good","Very good", "Excellent"))) %>% 
+   arrange(response)
+```
+
+* **In 2002, which states were observed at 7 or more locations? What about in 2010?**
+
+```{r}
+states2002 = 
+  brfss_clean %>% 
+  filter(year == 2002) %>% 
+  group_by(state) %>% 
+  summarize(n_location = n_distinct(county)) %>% 
+  filter(n_location >= 7) 
+
+states2010 = 
+  brfss_clean %>% 
+  filter(year == 2010) %>% 
+  group_by(state) %>% 
+  summarize(n_location = n_distinct(county)) %>% 
+  filter(n_location >= 7) 
+  
+```
+
+In 2002, `r pull(states2002, state)` were observed at 7 or more locations. In 2010, `r pull(states2010, state)` were observed at 7 or more locations.
+
+* **Construct a dataset** that is limited to Excellent responses, and contains, year, state, and a variable that averages the data_value across locations within a state. 
+
+## Make a “spaghetti” plot
+
+Showing this average value over time within a state.
+
+```{r}
+sp_plot = 
+  brfss_clean %>% 
+  filter(response == "Excellent") %>% 
+  select(year, state, data_value) %>% 
+  group_by(state, year) %>% 
+  summarise(average = mean(data_value)) %>% 
+  ggplot(aes(x = year, y= average, group = state))+
+  geom_line(aes(color = state))+
+  labs(
+      title = "Spaghetti plot of average value over time",
+      x = "Year",
+      y = "Average data value"
+    ) +
+    theme(plot.title = element_text(hjust = 0.5))
+
+sp_plot
+```
+
+The Spaghetti plot is very complicated but we can read that average data value of most state is around 20~25 over 8 years. There is one state reached the lowest value in 2005.
+
+## Make a two-panel plot
+
+Showing, for the years 2006, and 2010, distribution of data_value for responses (“Poor” to “Excellent”) among locations in NY State.
+
+```{r}
+tp_plot = 
+  brfss_clean %>% 
+  filter(
+    year == 2006 | year == 2010,
+    response == "Excellent" | 
+    response == "Very good" | 
+    response == "Good"| 
+    response == "Fair"|
+    response == "Poor",
+    state == "NY") %>% 
+  select(year, county, response, data_value) %>% 
+  ggplot(aes(x = county, y = data_value, group = response, color = response))+
+  geom_point(size = 3, alpha = .5) + 
+  geom_line() +
+  labs(
+    title = "Distribution of data_value for responses in NY, 2006",
+    x = "county",
+    y = "data value"
+  )+
+  facet_grid(~year) + 
+   viridis::scale_color_viridis(
+    name = "County",
+    discrete = TRUE) +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 60, hjust = 1))
+
+tp_plot  
+```
+
+According to the two-panel plot, we can see that there are two more counties, Bronx and Erie added into the data in 2010. Generally, "poor" reponse matches with low data value and "very good" and "excellent" reponse match with high data value. 
