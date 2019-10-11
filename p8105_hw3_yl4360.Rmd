@@ -10,12 +10,19 @@ knitr::opts_chunk$set(
   fig.height = 6,
   out.width = "90%"
 )
-```
 
-```{r message=FALSE}
 library(p8105.datasets)
 library(tidyverse)
 library(patchwork)
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
+```
+
+```{r message=FALSE}
 data("instacart")
 data("brfss_smart2010")
 ```
@@ -249,3 +256,85 @@ tp_plot
 ```
 
 According to the two-panel plot, we can see that there are two more counties, Bronx and Erie added into the data in 2010. Generally, "poor" reponse matches with low data value and "very good" and "excellent" reponse match with high data value. 
+
+# Problem 3
+
+* **Load, tidy, and otherwise wrangle the data.** Your final dataset should include all originally observed variables and values; have useful variable names; include a weekday vs weekend variable; and encode data with reasonable variable classes. Describe the resulting dataset (e.g. what variables exist, how many observations, etc).
+
+```{r}
+accel_data = read_csv("./accel_data.csv") %>% 
+  janitor::clean_names() %>% 
+  pivot_longer(
+  activity_1:activity_1440,
+  names_to = "activity",
+  names_prefix = "activity_",
+  values_to = "activity_counts"
+  ) 
+
+weekend =
+  accel_data %>%
+  filter(day == "Sunday" | day == "Saturday") %>%
+  mutate( weekday_weekend = "weekend") %>%
+  select(week, day_id, day, weekday_weekend, everything())
+
+weekday = 
+  accel_data %>%
+  filter(day == "Monday" | day == "Tuesday" | day == "Wednesday" | day == "Thursday" | day == "Friday") %>%
+  mutate( weekday_weekend = "weekday") %>%
+  select(week, day_id, day, weekday_weekend, everything())
+
+accel =
+  merge(weekend, weekday, all = TRUE) %>%
+  arrange(week, day_id) 
+```
+
+There are `r nrow(accel_data)` observations of `r ncol(accel_data)` variables in the dataset. The variables are `r colnames(accel_data)`.
+
+* **Traditional analyses of accelerometer data focus on the total activity over the day.** Using your tidied dataset, aggregate accross minutes to create a total activity variable for each day, and create a table showing these totals. Are any trends apparent?
+
+```{r}
+total_activity = 
+  accel %>% 
+  group_by(week, day_id,day, weekday_weekend) %>% 
+  summarise(total_activity = sum(activity_counts)) %>% 
+  arrange(week, weekday_weekend) %>% 
+  knitr::kable()
+```
+
+I arranged week and weekday_weekend variable but I did not find some significent trend. I do find that there might be a slightly decreasing in weekend total activity so I calculate the mean avtivity counts within each week to find if there is any trend of the toal acticity for the 5 weeks. 
+
+```{r}
+mean_activitiy_within_a_week = 
+  accel %>% 
+  group_by(week) %>% 
+  summarise(mean_activity = mean(activity_counts)) %>% 
+  knitr::kable()
+```
+
+It seems that there is a decrease but not very clear.
+
+## Make a single-panel plot
+
+Shows the 24-hour activity time courses for each day and use color to indicate day of the week. Describe in words any patterns or conclusions you can make based on this graph.
+
+```{r}
+plot =   
+  accel %>% 
+  mutate(
+    day = fct_relevel(as_factor(day), "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"),
+    activity = as.numeric(activity)
+    )%>% 
+  group_by(week, day) %>% 
+  ggplot(aes(x = activity, y = activity_counts, color = day))+
+  geom_line()+
+  labs(
+    x = "minutes",
+    y = "activity counts",
+    title = "24-hour activity time courses for each day"
+  )+
+  theme(plot.title = element_text(hjust = 0.5))
+
+plot
+```
+
+From the plot we can see that, at noon and late at night, the activity counts are much higher than midnight and afternoon. 
