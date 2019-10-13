@@ -262,7 +262,7 @@ According to the two-panel plot, we can see that there are two more counties, Br
 * **Load, tidy, and otherwise wrangle the data.** Your final dataset should include all originally observed variables and values; have useful variable names; include a weekday vs weekend variable; and encode data with reasonable variable classes. Describe the resulting dataset (e.g. what variables exist, how many observations, etc).
 
 ```{r}
-accel_data = read_csv("./accel_data.csv") %>% 
+accel_data = read_csv("./data/accel_data.csv") %>% 
   janitor::clean_names() %>% 
   pivot_longer(
   activity_1:activity_1440,
