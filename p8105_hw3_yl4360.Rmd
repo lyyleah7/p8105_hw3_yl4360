@@ -297,8 +297,9 @@ total_activity =
   accel %>% 
   group_by(week, day_id,day, weekday_weekend) %>% 
   summarise(total_activity = sum(activity_counts)) %>% 
-  arrange(week, weekday_weekend) %>% 
-  knitr::kable()
+  arrange(week, weekday_weekend)
+
+knitr::kable(total_activity)
 ```
 
 I arranged week and weekday_weekend variable but I did not find some significent trend. I do find that there might be a slightly decreasing in weekend total activity so I calculate the mean avtivity counts within each week to find if there is any trend of the toal acticity for the 5 weeks. 
@@ -307,8 +308,9 @@ I arranged week and weekday_weekend variable but I did not find some significent
 mean_activitiy_within_a_week = 
   accel %>% 
   group_by(week) %>% 
-  summarise(mean_activity = mean(activity_counts)) %>% 
-  knitr::kable()
+  summarise(mean_activity = mean(activity_counts))
+
+knitr::kable(mean_activitiy_within_a_week)
 ```
 
 It seems that there is a decrease but not very clear.
